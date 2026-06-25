@@ -1,0 +1,64 @@
+name: Scheduled Research Data Collection
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # daily at 02:00 UTC
+  workflow_dispatch:        # allow manual trigger from GitHub UI
+    inputs:
+      sources:
+        description: "Sources to run (space-separated: arxiv pubmed web api) — leave blank for all"
+        required: false
+        default: ""
+      format:
+        description: "Output format"
+        required: false
+        default: "json"
+        type: choice
+        options: [json, csv, sqlite]
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run data collector
+        env:
+          PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
+        run: |
+          SOURCES="${{ github.event.inputs.sources }}"
+          FORMAT="${{ github.event.inputs.format || 'json' }}"
+          ARGS=""
+          if [ -n "$SOURCES" ]; then
+            ARGS="--sources $SOURCES"
+          fi
+          python main.py --config config/config.yaml --format "$FORMAT" $ARGS
+
+      - name: Upload output as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-data-${{ github.run_number }}
+          path: output/
+          retention-days: 30
+
+      - name: Commit output to repository (optional)
+        if: github.event_name == 'schedule'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add output/
+          git diff --staged --quiet || git commit -m "chore: auto-collect research data $(date -u '+%Y-%m-%d')"
+          git push

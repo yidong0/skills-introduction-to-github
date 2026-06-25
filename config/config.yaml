@@ -1,0 +1,55 @@
+# Research Data Collector — Main Configuration
+# Suitable for cloud platforms (Hermes / OpenClaw)
+
+storage:
+  format: json          # json | csv | sqlite
+  output_dir: output
+  filename_prefix: research_data
+  append: false
+
+# ── arXiv ───────────────────────────────────────────────────────────────────
+arxiv:
+  enabled: true
+  keywords:
+    - "machine learning"
+    - "large language model"
+  categories:
+    - cs.AI
+    - cs.LG
+    - stat.ML
+  max_results: 30
+
+# ── PubMed ──────────────────────────────────────────────────────────────────
+pubmed:
+  enabled: true
+  keywords:
+    - "deep learning medical imaging"
+    - "natural language processing clinical"
+  max_results: 30
+  api_key: ""           # optional: register at https://www.ncbi.nlm.nih.gov/account/
+
+# ── Web Scraping ─────────────────────────────────────────────────────────────
+web:
+  enabled: false        # set to true and fill urls to activate
+  delay_seconds: 3.0
+  timeout: 30
+  extract_links: false
+  urls:
+    # - "https://example.com/research"
+
+# ── Generic REST APIs ────────────────────────────────────────────────────────
+api:
+  enabled: false        # set to true and add endpoints to activate
+  delay_seconds: 1.0
+  timeout: 30
+  endpoints:
+    # Example: OpenAlex (open academic graph, no key needed)
+    # - name: openalex_works
+    #   url: "https://api.openalex.org/works"
+    #   params:
+    #     search: "machine learning"
+    #     per-page: 50
+    #     mailto: "your@email.com"
+    #   data_path: "results"
+    #   next_page_key: "meta.next_cursor"
+    #   max_pages: 3
