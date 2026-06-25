@@ -6,7 +6,7 @@ on:
   workflow_dispatch:        # allow manual trigger from GitHub UI
     inputs:
       sources:
-        description: "Sources to run (space-separated: arxiv pubmed web api) — leave blank for all"
+        description: "Sources to run (space-separated: arxiv pubmed web api github) — leave blank for all"
         required: false
         default: ""
       format:
@@ -38,6 +38,7 @@ jobs:
       - name: Run data collector
         env:
           PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.COLLECTOR_GITHUB_TOKEN }}
         run: |
           SOURCES="${{ github.event.inputs.sources }}"
           FORMAT="${{ github.event.inputs.format || 'json' }}"

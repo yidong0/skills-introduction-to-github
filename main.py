@@ -21,7 +21,7 @@ except ImportError:
     print("PyYAML not found. Install with: pip install pyyaml")
     sys.exit(1)
 
-from collectors import ArxivCollector, PubmedCollector, WebScraper, ApiCollector
+from collectors import ArxivCollector, PubmedCollector, WebScraper, ApiCollector, GitHubCollector
 from utils import DataStorage, get_logger
 
 logger = get_logger("main")
@@ -31,6 +31,7 @@ SOURCE_MAP = {
     "pubmed": (PubmedCollector, "pubmed"),
     "web":    (WebScraper,      "web"),
     "api":    (ApiCollector,    "api"),
+    "github": (GitHubCollector, "github"),
 }
 
 
@@ -74,7 +75,7 @@ def run(config: dict, sources: list[str] | None, fmt_override: str | None) -> No
 def main():
     parser = argparse.ArgumentParser(description="Research Data Collector")
     parser.add_argument("--config", default="config/config.yaml", help="Path to YAML config file")
-    parser.add_argument("--sources", nargs="+", choices=list(SOURCE_MAP.keys()),
+    parser.add_argument("--sources", nargs="+", choices=sorted(SOURCE_MAP.keys()),
                         help="Run only these sources (default: all enabled)")
     parser.add_argument("--format", choices=["json", "csv", "sqlite"],
                         help="Override storage format from config")

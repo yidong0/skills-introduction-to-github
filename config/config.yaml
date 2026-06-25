@@ -53,3 +53,19 @@ api:
     #   data_path: "results"
     #   next_page_key: "meta.next_cursor"
     #   max_pages: 3
+
+# ── GitHub Repository Analysis ───────────────────────────────────────────────
+github:
+  enabled: false        # set to true to activate
+  token: ""             # or set env var GITHUB_TOKEN (recommended)
+  delay_seconds: 1.5
+  max_items: 30
+  collect_issues: true
+  collect_prs: false
+  collect_commits: false
+  repos:                # specific repos to deep-dive
+    # - "huggingface/transformers"
+    # - "openai/openai-python"
+  search_queries:       # GitHub search API queries
+    # - "topic:llm stars:>500 language:python"
+    # - "topic:machine-learning created:>2025-01-01"
