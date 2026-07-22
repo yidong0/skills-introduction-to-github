@@ -35,3 +35,10 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# wps_dashboard #
+#################
+wps_dashboard/.env
+wps_dashboard/output/
+wps_dashboard/__pycache__/
+wps_dashboard/*.pyc

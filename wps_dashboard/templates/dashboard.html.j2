@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{{ title }}</title>
+<script>{{ chart_js | safe }}</script>
+<style>
+  .viz-root {
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --good:           #006300;
+    --bad:            #d03b3b;
+    --series-1: #2a78d6; /* blue */
+    --series-2: #1baf7a; /* aqua */
+    --series-3: #eda100; /* yellow */
+    --series-4: #008300; /* green */
+    --series-5: #4a3aa7; /* violet */
+    --series-6: #e34948; /* red */
+    --series-7: #e87ba4; /* magenta */
+    --series-8: #eb6834; /* orange */
+  }
+  @media (prefers-color-scheme: dark) {
+    .viz-root {
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --good:           #0ca30c;
+      --bad:            #e66767;
+      --series-1: #3987e5;
+      --series-2: #199e70;
+      --series-3: #c98500;
+      --series-4: #008300;
+      --series-5: #9085e9;
+      --series-6: #e66767;
+      --series-7: #d55181;
+      --series-8: #d95926;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 20px 64px; }
+  header.page-head { margin-bottom: 24px; }
+  header.page-head h1 { font-size: 22px; margin: 0 0 4px; }
+  header.page-head p { margin: 0; color: var(--text-secondary); font-size: 13px; }
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .tile {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .tile .label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+  .tile .value { font-size: 22px; font-weight: 600; }
+  .tile .delta { font-size: 12px; margin-top: 4px; }
+  .tile .delta.up { color: var(--good); }
+  .tile .delta.down { color: var(--bad); }
+  .tile .delta.flat { color: var(--text-muted); }
+
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .panels { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .panel h2 { font-size: 14px; margin: 0 0 12px; color: var(--text-primary); }
+  .panel .empty { color: var(--text-muted); font-size: 13px; padding: 24px 0; text-align: center; }
+  canvas { max-height: 260px; }
+
+  footer { margin-top: 32px; color: var(--text-muted); font-size: 12px; }
+</style>
+</head>
+<body class="viz-root">
+  <div class="wrap">
+    <header class="page-head">
+      <h1>{{ title }}</h1>
+      <p>统计区间：{{ kpis.generated_from }} ~ {{ kpis.generated_to }}（近 {{ kpis.window_days }} 天）· 生成时间：{{ generated_at }}</p>
+    </header>
+
+    <div class="tiles">
+      {% for tile in kpis.stat_tiles %}
+      <div class="tile">
+        <div class="label">{{ tile.label }}</div>
+        <div class="value">{{ "%.2f"|format(tile.value) if tile.is_rate else "{:,.0f}".format(tile.value) }}{{ tile.unit }}</div>
+        {% if tile.delta_pct is not none %}
+          {% set is_up = tile.delta_pct > 0 %}
+          {% set is_flat = tile.delta_pct == 0 %}
+          {% set good = (is_up and tile.good_when_up) or (not is_up and not tile.good_when_up) %}
+          <div class="delta {{ 'flat' if is_flat else ('up' if good else 'down') }}">
+            {{ '▲' if is_up else ('—' if is_flat else '▼') }} {{ "%.1f"|format(tile.delta_pct|abs) }}% 较上个周期
+          </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="panels">
+      <div class="panel">
+        <h2>播放与曝光趋势</h2>
+        <canvas id="chart-reach"></canvas>
+      </div>
+
+      <div class="panel">
+        <h2>互动数据趋势（点赞 / 评论 / 分享 / 收藏）</h2>
+        {% if kpis.has_engagement %}
+          <canvas id="chart-engagement"></canvas>
+        {% else %}
+          <div class="empty">表格中未识别到互动相关列</div>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <h2>粉丝净增长趋势</h2>
+        {% if kpis.has_followers %}
+          <canvas id="chart-followers"></canvas>
+        {% else %}
+          <div class="empty">表格中未识别到粉丝净增列</div>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <h2>成交金额趋势</h2>
+        {% if kpis.has_conversion %}
+          <canvas id="chart-conversion"></canvas>
+        {% else %}
+          <div class="empty">表格中未识别到带货/转化相关列</div>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <h2>转化率趋势</h2>
+        {% if kpis.has_conversion %}
+          <canvas id="chart-conversion-rate"></canvas>
+        {% else %}
+          <div class="empty">表格中未识别到带货/转化相关列</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <footer>数据来源：{{ source_label }} · 由 wps_dashboard 工具生成</footer>
+  </div>
+
+<script>
+const dates = {{ kpis.charts.dates | tojson }};
+const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+const ink = isDark ? '#c3c2b7' : '#52514e';
+const grid = isDark ? '#2c2c2a' : '#e1e0d9';
+const colors = {
+  s1: isDark ? '#3987e5' : '#2a78d6',
+  s2: isDark ? '#199e70' : '#1baf7a',
+  s3: isDark ? '#c98500' : '#eda100',
+  s5: isDark ? '#9085e9' : '#4a3aa7',
+  good: isDark ? '#0ca30c' : '#006300',
+  bad: isDark ? '#e66767' : '#d03b3b',
+};
+
+Chart.defaults.font.family = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.color = ink;
+
+const baseGrid = { color: grid, drawTicks: false };
+const baseScales = {
+  x: { grid: { display: false }, ticks: { color: ink } },
+  y: { grid: baseGrid, ticks: { color: ink }, beginAtZero: true },
+};
+
+function lineDataset(label, data, color) {
+  return {
+    label, data,
+    borderColor: color,
+    backgroundColor: color + '1A',
+    borderWidth: 2,
+    pointRadius: 3,
+    pointHoverRadius: 5,
+    pointBackgroundColor: color,
+    pointBorderColor: isDark ? '#1a1a19' : '#fcfcfb',
+    pointBorderWidth: 2,
+    tension: 0.25,
+    fill: false,
+  };
+}
+
+new Chart(document.getElementById('chart-reach'), {
+  type: 'line',
+  data: {
+    labels: dates,
+    datasets: [
+      lineDataset('播放量', {{ kpis.charts.reach.plays | tojson }}, colors.s1),
+      lineDataset('曝光量', {{ kpis.charts.reach.exposure | tojson }}, colors.s2),
+    ],
+  },
+  options: { responsive: true, interaction: { mode: 'index', intersect: false }, scales: baseScales, plugins: { legend: { position: 'top', labels: { boxWidth: 10, usePointStyle: true } } } },
+});
+
+{% if kpis.has_engagement %}
+new Chart(document.getElementById('chart-engagement'), {
+  type: 'line',
+  data: {
+    labels: dates,
+    datasets: [
+      lineDataset('点赞', {{ kpis.charts.engagement.likes | tojson }}, colors.s1),
+      lineDataset('评论', {{ kpis.charts.engagement.comments | tojson }}, colors.s2),
+      lineDataset('分享', {{ kpis.charts.engagement.shares | tojson }}, colors.s3),
+      lineDataset('收藏', {{ kpis.charts.engagement.saves | tojson }}, colors.s5),
+    ],
+  },
+  options: { responsive: true, interaction: { mode: 'index', intersect: false }, scales: baseScales, plugins: { legend: { position: 'top', labels: { boxWidth: 10, usePointStyle: true } } } },
+});
+{% endif %}
+
+{% if kpis.has_followers %}
+const netFollowers = {{ kpis.charts.followers.net_followers | tojson }};
+new Chart(document.getElementById('chart-followers'), {
+  type: 'bar',
+  data: {
+    labels: dates,
+    datasets: [{
+      label: '净增粉丝',
+      data: netFollowers,
+      backgroundColor: netFollowers.map(v => v >= 0 ? colors.s1 : colors.bad),
+      borderRadius: 4,
+      borderSkipped: false,
+      maxBarThickness: 18,
+    }],
+  },
+  options: { responsive: true, scales: baseScales, plugins: { legend: { display: false } } },
+});
+{% endif %}
+
+{% if kpis.has_conversion %}
+new Chart(document.getElementById('chart-conversion'), {
+  type: 'bar',
+  data: {
+    labels: dates,
+    datasets: [{
+      label: '成交金额',
+      data: {{ kpis.charts.conversion.gmv | tojson }},
+      backgroundColor: colors.s1,
+      borderRadius: 4,
+      borderSkipped: false,
+      maxBarThickness: 18,
+      yAxisID: 'y',
+    }],
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    scales: { x: baseScales.x, y: { ...baseScales.y, title: { display: true, text: '成交金额 (元)', color: ink } } },
+    plugins: { legend: { display: false } },
+  },
+});
+
+new Chart(document.getElementById('chart-conversion-rate'), {
+  type: 'line',
+  data: {
+    labels: dates,
+    datasets: [lineDataset('转化率', {{ kpis.charts.conversion.conversion_rate | tojson }}, colors.s2)],
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    scales: { x: baseScales.x, y: { ...baseScales.y, title: { display: true, text: '转化率 (%)', color: ink } } },
+    plugins: { legend: { display: false } },
+  },
+});
+{% endif %}
+</script>
+</body>
+</html>
